@@ -1,5 +1,14 @@
 # buddy
+``` bash
+  _               _     _
+ | |__  _   _  __| | __| |_   _
+ | '_ \| | | |/ _` |/ _` | | | |
+ | |_) | |_| | (_| | (_| | |_| |
+ |_.__/ \__,_|\__,_|\__,_|\__, |
+                           |___/
+ live terminal video player  v0.1.0
 
+```
 Buddy (short for Block-based Unicode Direct-color Display Yield) is a live terminal video player that renders in true 24-bit color.
 
 `mpv -vo caca` uses a 256-color palette and nearest-neighbor sampling. buddy uses full RGB ANSI escape sequences with area-averaged downscaling — the difference is visible.
