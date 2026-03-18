@@ -17,7 +17,7 @@ Buddy (short for Block-based Unicode Direct-color Display Yield) is a live termi
 buddy video.mp4
 ```
 
-![DEMO](assets/demo.gif)
+[BUDDY'S LIVE](assets/demo.gif)
 
 ---
 
