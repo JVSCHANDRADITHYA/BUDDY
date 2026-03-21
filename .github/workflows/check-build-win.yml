@@ -1,0 +1,38 @@
+name: CI Windows
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install numpy imageio imageio-ffmpeg sounddevice soundfile
+      # ── file-based ────────────────────────────────────────────────────────
+      - name: "[file] imports"
+        run: python -c "from ascii_play.renderers import MODES; from ascii_play.player import play; print('OK')"
+      - name: "[file] help"
+        run: python ascii_play\cli.py help
+      - name: "[file] modes"
+        run: python ascii_play\cli.py modes
+      # ── buddy global access ───────────────────────────────────────────────
+      - name: "[buddy] add to PATH"
+        run: echo "${{ github.workspace }}" >> $env:GITHUB_PATH
+      - name: "[buddy] on PATH"
+        run: where buddy
+      - name: "[buddy] help"
+        run: buddy help
+      - name: "[buddy] modes"
+        run: buddy modes
+      - name: "[buddy] error on missing file"
+        run: |
+          buddy doesnotexist.mp4
+          if ($LASTEXITCODE -eq 0) { exit 1 } else { echo "correctly errored" }
