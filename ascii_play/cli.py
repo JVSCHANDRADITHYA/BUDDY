@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 cli.py — buddy
-
-Entry point. for cli tool Run directly:
+~~~~~~~~~~~~~~
+Entry point. Run directly:
 
     python cli.py video.mp4
     python cli.py play video.mp4 -m braille -q 3
@@ -10,7 +10,7 @@ Entry point. for cli tool Run directly:
     python cli.py help
 
 Or via wrapper scripts:
-    buddy video.mp4 / this is after running either pip install -e or setup.sh/.bat
+    buddy video.mp4
 """
 
 import sys
@@ -34,13 +34,15 @@ def _add_play_args(p):
                    metavar="F",      help="Terminal fill fraction 0.1-1.0 (default: 1.0)")
     p.add_argument("--loop",          action="store_true", help="Loop indefinitely")
     p.add_argument("--no-info",       action="store_true", help="Hide status bar")
+    p.add_argument("--no-audio",      action="store_true", help="Disable audio playback")
 
 def _run_play(args):
     if not os.path.isfile(args.filename):
         print(f"buddy: error: file not found: {args.filename}", file=sys.stderr)
         sys.exit(1)
     play(filename=args.filename, mode=args.mode, scale=args.scale,
-         loop=args.loop, info=not args.no_info, quality=args.quality)
+         loop=args.loop, info=not args.no_info, quality=args.quality,
+         audio=not args.no_audio)
 
 HELP = r"""
   _               _     _
@@ -49,7 +51,7 @@ HELP = r"""
  | |_) | |_| | (_| | (_| | |_| |
  |_.__/ \__,_|\__,_|\__,_|\__, |
                            |___/
- live terminal video player  v0.1.0
+ live terminal video player  v0.1.2
 
 USAGE
   buddy <video>                     Play a video (smart default)
@@ -83,6 +85,9 @@ EXAMPLES
   buddy video.mp4 -m half -q 3 --loop
   buddy video.mp4 -s 0.8 --no-info
   buddy play video.mp4 -m ascii -q 2 -s 0.9
+
+NEW : AUDIO SUPPORT ADDED! (version 0.1.2)
+  Audio is now supported in all render modes. Use --no-audio to disable.
 
 TERMINAL REQUIREMENTS
   Needs 24-bit true color support.
