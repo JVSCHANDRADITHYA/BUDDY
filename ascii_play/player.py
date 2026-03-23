@@ -1,11 +1,10 @@
 """
 ascii_play.player
+~~~~~~~~~~~~~~~~~
+Video decode + render loop with audio sync.
 
-
-Video decode + render loop.
-
-Install audio dep:
-pip install sounddevice soundfile
+Audio: extracted to wav, played via sounddevice (works on Windows natively).
+Sync: audio clock is master, video sleeps to match frame timing.
 """
 
 import os
@@ -24,17 +23,18 @@ from .ansi      import alt_screen, normal_screen, cursor_hide, cursor_show, \
                        clear_screen, reset, move_to
 from .renderers import MODES, render_half
 
+
 # ── audio ─────────────────────────────────────────────────────────────────────
 
 def _has_audio_deps():
     try:
         import sounddevice, soundfile
         return True
-    except ImportError:
+    except (ImportError, OSError):
         return False
 
+
 def _extract_audio(filename, tmp_path):
-    """Extract audio from video to a wav file using ffmpeg."""
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
     result = subprocess.run(
         [ffmpeg, "-y", "-i", filename, "-vn", "-acodec", "pcm_s16le",
@@ -43,17 +43,14 @@ def _extract_audio(filename, tmp_path):
     )
     return result.returncode == 0
 
+
 class AudioClock:
-    """
-    Plays audio in a background thread and exposes the current playback
-    position as a precise timestamp. Video render loop uses this as master clock.
-    """
     def __init__(self, wav_path):
         import soundfile as sf
         import sounddevice as sd
 
         self._data, self._sr = sf.read(wav_path, dtype="float32")
-        self._pos     = 0           # current sample position
+        self._pos     = 0
         self._lock    = threading.Lock()
         self._stream  = None
         self._started = threading.Event()
@@ -86,7 +83,6 @@ class AudioClock:
 
     @property
     def time(self):
-        """Current playback position in seconds."""
         with self._lock:
             return self._pos / self._sr
 
@@ -136,9 +132,9 @@ def _loop(filename, renderer, mode, scale, loop, info, quality, audio, interrupt
     use_audio = audio and _has_audio_deps()
 
     while True:
-        # ── extract audio ──────────────────────────────────────────────────
-        clock      = None
-        tmp_wav    = None
+        # ── extract + start audio ──────────────────────────────────────────
+        clock   = None
+        tmp_wav = None
 
         if use_audio:
             tmp_wav = tempfile.mktemp(suffix=".wav")
@@ -155,6 +151,7 @@ def _loop(filename, renderer, mode, scale, loop, info, quality, audio, interrupt
         video = imageio_ffmpeg.read_frames(filename)
         meta  = next(video)
         fps   = meta.get("fps", 24) or 24
+        fps   = min(max(float(fps), 1), 120)   # clamp to sane range
         vw, vh = meta["size"]
         frame_size = (vh, vw, 3)
         spf   = 1.0 / fps
@@ -169,16 +166,24 @@ def _loop(filename, renderer, mode, scale, loop, info, quality, audio, interrupt
 
                 frame = np.frombuffer(raw, dtype=np.uint8).reshape(frame_size)
 
-                # ── audio-slaved sync ──────────────────────────────────────
+                # ── timing ─────────────────────────────────────────────────
                 if clock is not None:
-                    audio_time    = clock.time
+                    # audio is master clock
+                    audio_time     = clock.time
                     expected_frame = int(audio_time * fps)
-                    # drop frames if we're behind audio
-                    if expected_frame > frame_count + 1:
+
+                    if expected_frame > frame_count + 2:
+                        # more than 2 frames behind audio — skip to catch up
                         frame_count = expected_frame
                         continue
+
+                    # sleep until this frame is due per audio clock
+                    target = t_start + (audio_time + spf)
+                    slack  = target - time.perf_counter()
+                    if slack > 0:
+                        time.sleep(slack)
                 else:
-                    # no audio — classic timer sync
+                    # no audio — wall clock timing
                     target = t_start + frame_count * spf
                     slack  = target - time.perf_counter()
                     if slack > 0:
